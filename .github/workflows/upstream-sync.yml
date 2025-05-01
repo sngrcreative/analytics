@@ -32,7 +32,7 @@ jobs:
       - name: Get latest upstream tag
         id: get_tag
         run: |
-          latest_tag=$(git ls-remote --tags upstream | awk -F/ '{print $3}' | grep -v '\^{}' | sed 's/^v//' | sort -V | tail -n1)
+          latest_tag=$(git ls-remote --tags upstream | awk -F/ '{print $3}' | grep -v '\^{}' | sort -V | tail -n1)
           echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
 
       - name: Get last checked tag
@@ -51,7 +51,6 @@ jobs:
           echo "${{ steps.get_tag.outputs.latest_tag }}" > .github/upstream-last-tag.txt
           git add .github/upstream-last-tag.txt
           git commit -m "chore: update last checked upstream tag" || true
-          git push origin HEAD:main || true
 
       - name: Check if new tag is available
         id: check_new_tag
@@ -83,14 +82,15 @@ jobs:
               files_to_include+=("$file")
             fi
           done < changed_files.txt
-          if [ ${#files_to_include[@]} -eq 0 ]; then
-            echo "No relevant changes to sync."
-            exit 0
+          # Always include the last tag file if it was updated
+          if git diff --name-only --cached | grep -q ".github/upstream-last-tag.txt"; then
+            files_to_include+=(".github/upstream-last-tag.txt")
           fi
           echo "files_to_include=${files_to_include[*]}" >> $GITHUB_OUTPUT
+          echo "files_count=${#files_to_include[@]}" >> $GITHUB_OUTPUT
 
-      - name: Create PR with upstream changes
-        if: steps.diff_check.outcome == 'success'
+      - name: Create PR with upstream changes or last tag update
+        if: steps.diff_check.outputs.files_count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
           title: "Sync with upstream Umami ${{ steps.get_tag.outputs.latest_tag }}"
