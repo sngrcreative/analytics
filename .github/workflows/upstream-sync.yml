@@ -63,7 +63,7 @@ jobs:
       - name: Fetch upstream tag
         if: steps.get_tag.outputs.latest_tag != steps.last_tag.outputs.last_tag
         run: |
-          git fetch upstream tag ${{ steps.get_tag.outputs.latest_tag }}
+          git fetch upstream refs/tags/${{ steps.get_tag.outputs.latest_tag }}:refs/tags/${{ steps.get_tag.outputs.latest_tag }}
 
       - name: Check diff and ignore local-only files
         id: diff_check
@@ -71,7 +71,6 @@ jobs:
           # Get list of files changed between upstream tag and main
           git diff --name-only upstream/${{ steps.get_tag.outputs.latest_tag }} origin/main > changed_files.txt
           # Get list of all files at upstream tag
-          git fetch upstream ${{ steps.get_tag.outputs.latest_tag }}
           git checkout upstream/${{ steps.get_tag.outputs.latest_tag }} -- .
           find . -type f | sed 's|^./||' | sort > upstream_files.txt
           git checkout -
