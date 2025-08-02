@@ -69,9 +69,9 @@ jobs:
         id: diff_check
         run: |
           # Get list of files changed between upstream tag and main
-          git diff --name-only upstream/${{ steps.get_tag.outputs.latest_tag }} origin/main > changed_files.txt
+          git diff --name-only refs/tags/${{ steps.get_tag.outputs.latest_tag }} origin/main > changed_files.txt
           # Get list of all files at upstream tag
-          git checkout upstream/${{ steps.get_tag.outputs.latest_tag }} -- .
+          git checkout refs/tags/${{ steps.get_tag.outputs.latest_tag }} -- .
           find . -type f | sed 's|^./||' | sort > upstream_files.txt
           git checkout -
           # Filter out files that are not present in upstream
