@@ -87,6 +87,7 @@ jobs:
           echo "files_count=${#files_to_include[@]}" >> $GITHUB_OUTPUT
 
       - name: Create PR with upstream changes or last tag update
+        id: cpr
         if: steps.diff_check.outputs.files_count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -97,3 +98,9 @@ jobs:
           branch: "sync-upstream-${{ steps.get_tag.outputs.latest_tag }}"
           base: main
           add-paths: ${{ steps.diff_check.outputs.files_to_include }}
+
+      - name: Enable auto-merge for the PR
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
