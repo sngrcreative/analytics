@@ -63,39 +63,32 @@ jobs:
       - name: Fetch upstream tag
         if: steps.get_tag.outputs.latest_tag != steps.last_tag.outputs.last_tag
         run: |
-          git fetch upstream tag ${{ steps.get_tag.outputs.latest_tag }}
+          git fetch upstream refs/tags/${{ steps.get_tag.outputs.latest_tag }}:refs/tags/${{ steps.get_tag.outputs.latest_tag }}
 
-      - name: Check diff and ignore local-only files
-        id: diff_check
+      - name: Apply upstream changes, preserving local workflows
+        if: steps.get_tag.outputs.latest_tag != steps.last_tag.outputs.last_tag
         run: |
-          # Get list of files changed between upstream tag and main
-          git diff --name-only upstream/${{ steps.get_tag.outputs.latest_tag }} origin/main > changed_files.txt
-          # Get list of all files at upstream tag
-          git fetch upstream ${{ steps.get_tag.outputs.latest_tag }}
-          git checkout upstream/${{ steps.get_tag.outputs.latest_tag }} -- .
-          find . -type f | sed 's|^./||' | sort > upstream_files.txt
-          git checkout -
-          # Filter out files that are not present in upstream
-          files_to_include=()
-          while read file; do
-            if grep -Fxq "$file" upstream_files.txt; then
-              files_to_include+=("$file")
-            fi
-          done < changed_files.txt
-          # Always include the last tag file if it was updated
-          if git diff --name-only --cached | grep -q ".github/upstream-last-tag.txt"; then
-            files_to_include+=(".github/upstream-last-tag.txt")
-          fi
-          echo "files_to_include=${files_to_include[*]}" >> $GITHUB_OUTPUT
-          echo "files_count=${#files_to_include[@]}" >> $GITHUB_OUTPUT
+          # Check out all files from the upstream tag
+          git checkout refs/tags/${{ steps.get_tag.outputs.latest_tag }} -- .
+          # Restore our local versions of the workflow files
+          git restore --source=HEAD --staged --worktree .github/workflows/
+          # Remove any new workflow files from upstream
+          git clean -fd .github/workflows/
 
-      - name: Create PR with upstream changes or last tag update
-        if: steps.diff_check.outputs.files_count != '0'
+      - name: Create Pull Request
+        id: cpr
+        if: steps.get_tag.outputs.latest_tag != steps.last_tag.outputs.last_tag
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           title: "Sync with upstream Umami ${{ steps.get_tag.outputs.latest_tag }}"
           body: "Automated PR to sync changes from upstream tag ${{ steps.get_tag.outputs.latest_tag }}."
           commit-message: "chore: sync with upstream tag ${{ steps.get_tag.outputs.latest_tag }}"
           branch: "sync-upstream-${{ steps.get_tag.outputs.latest_tag }}"
           base: main
-          add-paths: ${{ steps.diff_check.outputs.files_to_include }}
+
+      - name: Enable auto-merge for the PR
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
