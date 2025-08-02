@@ -90,6 +90,7 @@ jobs:
         if: steps.diff_check.outputs.files_count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           title: "Sync with upstream Umami ${{ steps.get_tag.outputs.latest_tag }}"
           body: "Automated PR to sync changes from upstream tag ${{ steps.get_tag.outputs.latest_tag }}."
           commit-message: "chore: sync with upstream tag ${{ steps.get_tag.outputs.latest_tag }}"
