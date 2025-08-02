@@ -65,13 +65,15 @@ jobs:
         run: |
           git fetch upstream refs/tags/${{ steps.get_tag.outputs.latest_tag }}:refs/tags/${{ steps.get_tag.outputs.latest_tag }}
 
-      - name: Apply upstream changes, preserving the workflow file
+      - name: Apply upstream changes, preserving local workflows
         if: steps.get_tag.outputs.latest_tag != steps.last_tag.outputs.last_tag
         run: |
           # Check out all files from the upstream tag
           git checkout refs/tags/${{ steps.get_tag.outputs.latest_tag }} -- .
-          # Restore our local version of the workflow file
-          git restore --source=HEAD --staged --worktree .github/workflows/upstream-sync.yml
+          # Restore our local versions of the workflow files
+          git restore --source=HEAD --staged --worktree .github/workflows/
+          # Remove any new workflow files from upstream
+          git clean -fd .github/workflows/
 
       - name: Create Pull Request
         id: cpr
